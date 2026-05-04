@@ -196,10 +196,24 @@ export const getTopHorror = () => discoverByGenre(27)
 export const getTopSciFi = () => discoverByGenre(878)
 export const getTopRomance = () => discoverByGenre(10749)
 
+// Crunchyroll provider ID on TMDB (BR)
+const CRUNCHYROLL_ID = '283'
+
 export async function getTopAnime(): Promise<MovieLike[]> {
   const [movies, tvShows] = await Promise.all([
-    discoverByGenre(16, { with_original_language: 'ja' }),
-    discoverTvByGenre(16, { with_original_language: 'ja' }),
+    discoverByGenre(16, {
+      with_original_language: 'ja',
+      with_watch_providers: CRUNCHYROLL_ID,
+      include_adult: 'false',
+      'vote_count.gte': '100',
+    }),
+    discoverTvByGenre(16, {
+      with_original_language: 'ja',
+      with_watch_providers: CRUNCHYROLL_ID,
+      watch_region: 'BR',
+      with_watch_monetization_types: 'flatrate',
+      'vote_count.gte': '100',
+    }),
   ])
   const combined: MovieLike[] = [
     ...movies.map(m => ({ ...m, mediaType: 'movie' as const })),
