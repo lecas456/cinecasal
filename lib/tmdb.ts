@@ -257,3 +257,18 @@ export async function discoverMovies(params: DiscoverParams): Promise<DiscoverRe
   if (!res.ok) return { page: 1, results: [], total_pages: 0, total_results: 0 }
   return res.json()
 }
+
+export async function discoverTv(params: Record<string, string | number | undefined>): Promise<{ results: TvShow[] }> {
+  const searchParams = new URLSearchParams()
+  searchParams.set('language', 'pt-BR')
+  searchParams.set('sort_by', 'popularity.desc')
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined) searchParams.set(k, String(v))
+  })
+  const res = await fetch(`${BASE}/discover/tv?${searchParams}`, {
+    headers: getHeaders(),
+    cache: 'no-store',
+  })
+  if (!res.ok) return { results: [] }
+  return res.json()
+}

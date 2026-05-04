@@ -10,13 +10,13 @@ import { Textarea } from '@/components/ui/textarea'
 import WatchProviders from '@/components/WatchProviders'
 import { createClient } from '@/lib/supabase/client'
 import { IMAGE_BASE, STREAMING_PLATFORMS_BR } from '@/lib/tmdb'
-import type { WatchProviderResult } from '@/types/tmdb'
-import type { MovieLike } from '@/components/MovieCard'
+import type { WatchProviderResult, MovieLike } from '@/types/tmdb'
 
 interface Recommendation {
   movie: MovieLike
   providers: WatchProviderResult | null
   aiReason?: string
+  mediaType: 'movie' | 'tv'
 }
 
 const YEAR_OPTIONS = [
@@ -34,6 +34,7 @@ export default function RecommendationSheet() {
   const [mood, setMood] = useState('')
   const [platformId, setPlatformId] = useState<number | undefined>()
   const [minYear, setMinYear] = useState<number | undefined>()
+  const [mediaType, setMediaType] = useState<'movie' | 'tv' | 'both'>('both')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<Recommendation | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +55,7 @@ export default function RecommendationSheet() {
       if (mood.trim()) params.set('mood', mood.trim())
       if (platformId) params.set('platformId', String(platformId))
       if (minYear) params.set('minYear', String(minYear))
+      if (mediaType !== 'both') params.set('mediaType', mediaType)
 
       const res = await fetch(`/api/recommend?${params}`, { cache: 'no-store' })
       if (!res.ok) {
@@ -131,6 +133,26 @@ export default function RecommendationSheet() {
                 />
               </div>
 
+              {/* Media type filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Tipo</label>
+                <div className="flex gap-2">
+                  {([['both', 'Filme ou Série'], ['movie', 'Só Filmes'], ['tv', 'Só Séries']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setMediaType(val)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors border ${
+                        mediaType === val
+                          ? 'bg-red-600 border-red-600 text-white'
+                          : 'border-zinc-600 text-zinc-400 hover:border-zinc-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Platform filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-300">Filtrar por streaming</label>
@@ -196,7 +218,7 @@ export default function RecommendationSheet() {
                 ) : (
                   <span className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
-                    Sugerir filme
+                    {mediaType === 'tv' ? 'Sugerir série' : mediaType === 'movie' ? 'Sugerir filme' : 'O que assistir hoje?'}
                   </span>
                 )}
               </Button>
@@ -272,7 +294,7 @@ export default function RecommendationSheet() {
 
                 <div className="flex gap-2">
                   <Link
-                    href={`/movie/${result.movie.id}`}
+                    href={result.mediaType === 'tv' ? `/tv/${result.movie.id}` : `/movie/${result.movie.id}`}
                     onClick={() => setOpen(false)}
                     className="flex-1 flex items-center justify-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-2"
                   >
