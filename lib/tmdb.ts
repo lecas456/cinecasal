@@ -158,12 +158,57 @@ async function discoverByGenre(genreId: number, extra?: Record<string, string>):
   return data.results.slice(0, 10)
 }
 
+async function discoverTvByGenre(genreId: number, extra?: Record<string, string>): Promise<MovieLike[]> {
+  const params = new URLSearchParams({
+    sort_by: 'popularity.desc',
+    language: 'pt-BR',
+    with_genres: String(genreId),
+    ...extra,
+  })
+  const res = await fetch(`${BASE}/discover/tv?${params}`, {
+    headers: getHeaders(),
+    next: { revalidate: 3600 },
+  })
+  if (!res.ok) return []
+  const data: { results: TvShow[] } = await res.json()
+  return data.results.slice(0, 10).map(tv => ({
+    id: tv.id,
+    title: tv.name,
+    original_title: tv.original_name,
+    poster_path: tv.poster_path,
+    backdrop_path: tv.backdrop_path,
+    overview: tv.overview,
+    release_date: tv.first_air_date,
+    vote_average: tv.vote_average,
+    vote_count: tv.vote_count,
+    popularity: tv.popularity,
+    adult: false,
+    video: false,
+    original_language: tv.original_language,
+    genre_ids: tv.genre_ids,
+    mediaType: 'tv' as const,
+  }))
+}
+
 export const getTopComedies = () => discoverByGenre(35)
 export const getTopAction = () => discoverByGenre(28)
 export const getTopHorror = () => discoverByGenre(27)
 export const getTopSciFi = () => discoverByGenre(878)
 export const getTopRomance = () => discoverByGenre(10749)
-export const getTopAnime = () => discoverByGenre(16, { with_original_language: 'ja' })
+
+export async function getTopAnime(): Promise<MovieLike[]> {
+  const [movies, tvShows] = await Promise.all([
+    discoverByGenre(16, { with_original_language: 'ja' }),
+    discoverTvByGenre(16, { with_original_language: 'ja' }),
+  ])
+  const combined: MovieLike[] = [
+    ...movies.map(m => ({ ...m, mediaType: 'movie' as const })),
+    ...tvShows,
+  ]
+  return combined
+    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+    .slice(0, 10)
+}
 
 export async function getMovieDetails(id: number): Promise<MovieDetails | null> {
   const params = new URLSearchParams({ language: 'pt-BR' })
