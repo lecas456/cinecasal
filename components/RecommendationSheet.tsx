@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Sparkles, ThumbsUp, ThumbsDown, RefreshCw, ChevronRight } from 'lucide-react'
+import { Sparkles, ThumbsUp, ThumbsDown, RefreshCw, ChevronRight, Eye } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -86,6 +86,15 @@ export default function RecommendationSheet() {
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
       status: 'rejected',
+    })
+    fetchRecommendation()
+  }
+
+  async function handleWatched() {
+    if (!result) return
+    await supabase.from('watchlist').insert({
+      movie_id: result.movie.id,
+      status: 'watched',
     })
     fetchRecommendation()
   }
@@ -279,20 +288,27 @@ export default function RecommendationSheet() {
                 )}
 
                 {/* Action buttons */}
-                <div className="flex gap-3 pt-1">
+                <div className="flex gap-2 pt-1">
                   <button
                     onClick={handleReject}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-zinc-700 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
                   >
                     <ThumbsDown className="h-4 w-4" />
                     Não curto
                   </button>
                   <button
+                    onClick={handleWatched}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 py-3 text-sm font-medium text-zinc-400 hover:bg-zinc-900 transition-colors"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Já vi
+                  </button>
+                  <button
                     onClick={handleAccept}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-sm font-bold text-white transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-sm font-bold text-white transition-colors"
                   >
                     <ThumbsUp className="h-4 w-4" />
-                    Vamos ver!
+                    Assistir
                   </button>
                 </div>
 

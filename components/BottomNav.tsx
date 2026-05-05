@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Heart, Bookmark, User } from 'lucide-react'
+import { Home, Search, Heart, Bookmark, User, Users2 } from 'lucide-react'
 
 const links = [
   { href: '/', icon: Home, label: 'Início' },
   { href: '/search', icon: Search, label: 'Buscar' },
   { href: '/swipe', icon: Heart, label: 'Swipe' },
+  { href: '/match', icon: Users2, label: 'Match' },
   { href: '/watchlist', icon: Bookmark, label: 'Lista' },
   { href: '/profile', icon: User, label: 'Perfil' },
 ]
@@ -19,12 +20,12 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-t border-white/5">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
         {links.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href
+          const active = href === '/' ? pathname === href : pathname.startsWith(href)
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 min-w-[4rem] py-1 transition-all ${
+              className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${
                 active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
