@@ -68,9 +68,19 @@ export default function MatchSessionPage() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'match_sessions', filter: `id=eq.${session.id}` },
-        (payload) => {
+        async (payload) => {
           const updated = payload.new as MatchSession
-          setSession(updated)
+          // Realtime pode omitir JSONB grandes — refetch quando o status muda para matched
+          if (updated.status === 'matched' || !updated.current_movie) {
+            const { data } = await supabase
+              .from('match_sessions')
+              .select('*')
+              .eq('id', session.id)
+              .single()
+            if (data) setSession(data as MatchSession)
+          } else {
+            setSession(updated)
+          }
           if (updated.leader_vote === null && updated.partner_vote === null) {
             setMyVote(null)
             votesProcessedRef.current = false

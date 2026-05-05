@@ -5,14 +5,15 @@ services:
     restart: unless-stopped
     env_file: .env
     networks:
-      - traefik
+      - SimpleTechNet
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cinecasal.rule=Host(`cinecasal.simpletechdata.cloud`)"
       - "traefik.http.routers.cinecasal.entrypoints=websecure"
-      - "traefik.http.routers.cinecasal.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.cinecasal.tls.certresolver=letsencryptresolver"
       - "traefik.http.services.cinecasal.loadbalancer.server.port=3000"
 
 networks:
-  traefik:
+  SimpleTechNet:
     external: true
+    name: SimpleTechNet
