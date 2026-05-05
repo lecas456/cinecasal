@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Onboarding: logged in user with no swipes → redirect to /swipe
-  if (user && !isPublic && pathname !== '/swipe') {
+  if (user && !isPublic && pathname !== '/swipe' && !pathname.startsWith('/api/')) {
     const { data: swipes } = await supabase
       .from('swipes')
       .select('id')
