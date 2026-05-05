@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Sparkles, ThumbsUp, ThumbsDown, RefreshCw, ChevronRight, Eye } from 'lucide-react'
@@ -39,6 +39,11 @@ export default function RecommendationSheet() {
   const [result, setResult] = useState<Recommendation | null>(null)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+  }, [supabase])
 
   function openSheet() {
     setStep('filters')
@@ -77,6 +82,7 @@ export default function RecommendationSheet() {
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
       status: 'accepted',
+      added_by: userId,
     })
     setOpen(false)
   }
@@ -86,6 +92,7 @@ export default function RecommendationSheet() {
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
       status: 'rejected',
+      added_by: userId,
     })
     fetchRecommendation()
   }
@@ -95,6 +102,7 @@ export default function RecommendationSheet() {
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
       status: 'watched',
+      added_by: userId,
     })
     fetchRecommendation()
   }
@@ -131,7 +139,7 @@ export default function RecommendationSheet() {
               {/* Mood input */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-300">
-                  Em qual clima vocês estão? <span className="text-zinc-500">(opcional)</span>
+                  Em qual clima você está? <span className="text-zinc-500">(opcional)</span>
                 </label>
                 <Textarea
                   value={mood}

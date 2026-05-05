@@ -38,11 +38,15 @@ export async function getRecommendation(
   filters?: RecommendationFilters
 ): Promise<RecommendationResult | null> {
 
-  // ── Phase 1: Build deep couple taste profile ──────────────────────
+  // ── Phase 1: Build user taste profile ────────────────────────────
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const userId = user?.id
 
   const { data: reviews } = await supabase
     .from('reviews')
     .select('movie_id, rating, user_id, movies(title, genres)')
+    .eq('user_id', userId)
 
   const movieMap: Record<number, {
     title: string
@@ -88,7 +92,7 @@ export async function getRecommendation(
   // ── Phase 2: Excluded IDs + swipe signals ─────────────────────────
 
   const [{ data: watchedReviews }, { data: rejectedWatchlist }, { data: swipes }] = await Promise.all([
-    supabase.from('reviews').select('movie_id'),
+    supabase.from('reviews').select('movie_id').eq('user_id', userId),
     supabase.from('watchlist').select('movie_id').in('status', ['rejected', 'watched']),
     supabase.from('swipes').select('movie_id, direction, media_type'),
   ])
@@ -211,14 +215,14 @@ export async function getRecommendation(
 
   const tasteProfile = hasHistory || swipedLikeContext
     ? [
-        loved.length > 0 ? `Filmes/séries que o casal AMOU: ${loved.slice(0, 6).join(' | ')}` : '',
-        disliked.length > 0 ? `Não gostaram de: ${disliked.slice(0, 3).join(' | ')}` : '',
+        loved.length > 0 ? `Filmes/séries que você AMOU: ${loved.slice(0, 6).join(' | ')}` : '',
+        disliked.length > 0 ? `Não gostou de: ${disliked.slice(0, 3).join(' | ')}` : '',
         topGenres.length > 0
           ? `Gêneros favoritos por nota: ${topGenres.map(g => `${g.name} (★${g.avg.toFixed(1)}, ${g.count}x)`).join(', ')}`
           : '',
         swipedLikeContext,
       ].filter(Boolean).join('\n')
-    : 'Casal sem histórico ainda — escolha algo popular, bem avaliado e acessível.'
+    : 'Usuário sem histórico ainda — escolha algo popular, bem avaliado e acessível.'
 
   const moodLine = filters?.mood ? `\nESTADO DE ESPÍRITO HOJE: "${filters.mood}"` : ''
   const mediaTypeHint = filters?.mediaType === 'tv'
@@ -241,20 +245,20 @@ export async function getRecommendation(
       messages: [
         {
           role: 'system',
-          content: `Você é um crítico de cinema e séries especialista em recomendar para casais.
-Analise o perfil de gosto do casal com cuidado e escolha a opção que mais combina.
+          content: `Você é um crítico de cinema e séries especialista em recomendações personalizadas.
+Analise o perfil de gosto do usuário com cuidado e escolha a opção que mais combina.
 Responda SOMENTE com JSON válido, sem markdown:
-{"id": <número>, "type": "movie" ou "tv", "reason": "<2 frases em português — 1ª conecta com o gosto do casal, 2ª descreve o que torna essa obra especial>"}
-A razão deve ser pessoal e específica: mencione gostos concretos do casal ou o clima pedido.`,
+{"id": <número>, "type": "movie" ou "tv", "reason": "<2 frases em português — 1ª conecta com o gosto do usuário, 2ª descreve o que torna essa obra especial>"}
+A razão deve ser pessoal e específica: mencione gostos concretos do usuário ou o clima pedido.`,
         },
         {
           role: 'user',
-          content: `PERFIL DO CASAL:\n${tasteProfile}${moodLine}${mediaTypeHint}
+          content: `PERFIL DO USUÁRIO:\n${tasteProfile}${moodLine}${mediaTypeHint}
 
 CANDIDATOS DISPONÍVEIS (streaming BR):
 ${candidateList}
 
-Qual obra esse casal vai mais amar hoje à noite? Justifique em 2 frases conectando com o perfil deles.`,
+Qual obra esse usuário vai mais amar hoje? Justifique em 2 frases conectando com o perfil dele.`,
         },
       ],
     })
