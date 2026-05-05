@@ -28,6 +28,7 @@ export default function SwipePage() {
 
   const [cards, setCards] = useState<MovieLike[]>([])
   const [loading, setLoading] = useState(true)
+  const [feedError, setFeedError] = useState(false)
   const [swipeCount, setSwipeCount] = useState(0)
   const [done, setDone] = useState(false)
 
@@ -56,7 +57,8 @@ export default function SwipePage() {
 
       // Fetch combined swipe feed from a single API route
       const feedRes = await fetch('/api/swipe-feed')
-      const allItems: MovieLike[] = feedRes.ok ? await feedRes.json() : []
+      if (!feedRes.ok) { setFeedError(true); return }
+      const allItems: MovieLike[] = await feedRes.json()
 
       // Deduplicate and filter already-swiped
       const seen = new Set<string>()
@@ -157,6 +159,22 @@ export default function SwipePage() {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      </div>
+    )
+  }
+
+  if (feedError) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <div className="text-6xl">⚠️</div>
+        <h2 className="text-2xl font-black text-white">Erro ao carregar filmes</h2>
+        <p className="text-zinc-400">Não conseguimos buscar os filmes. Verifique sua conexão e tente novamente.</p>
+        <button
+          onClick={() => { setFeedError(false); loadCards() }}
+          className="rounded-2xl bg-zinc-800 hover:bg-zinc-700 px-8 py-4 text-white font-bold text-base transition-colors"
+        >
+          Tentar novamente
+        </button>
       </div>
     )
   }
