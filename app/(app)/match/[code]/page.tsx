@@ -7,6 +7,7 @@ import { Copy, Loader2, Heart, X, Users2, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { IMAGE_BASE } from '@/lib/tmdb'
 import type { MovieLike, WatchProviderResult } from '@/types/tmdb'
+import WatchProviders from '@/components/WatchProviders'
 
 type MovieWithProviders = MovieLike & { providers?: WatchProviderResult | null }
 

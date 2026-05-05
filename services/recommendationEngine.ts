@@ -84,23 +84,41 @@ export async function getRecommendation(
     }
   }
 
-  const topGenres = Object.entries(genreScores)
-    .map(([name, { total, count }]) => ({ name, avg: total / count, count }))
-    .sort((a, b) => b.avg * Math.log(b.count + 1) - a.avg * Math.log(a.count + 1))
-    .slice(0, 6)
+  // topGenres calculated after Phase 2 (swipes also contribute to genreScores)
 
   // ── Phase 2: Excluded IDs + swipe signals ─────────────────────────
 
   const [{ data: watchedReviews }, { data: rejectedWatchlist }, { data: swipes }] = await Promise.all([
     supabase.from('reviews').select('movie_id').eq('user_id', userId),
     supabase.from('watchlist').select('movie_id').in('status', ['rejected', 'watched']),
-    supabase.from('swipes').select('movie_id, direction, media_type'),
+    supabase.from('swipes').select('movie_id, direction, media_type, movies(title, genres)'),
   ])
 
-  const swipeDislikedIds = new Set<number>(
-    (swipes ?? []).filter(s => s.direction === 'dislike').map(s => s.movie_id)
-  )
-  const swipeLikedTitles: string[] = []
+  const swipeLiked   = (swipes ?? []).filter(s => s.direction === 'like')
+  const swipeDisliked = (swipes ?? []).filter(s => s.direction === 'dislike')
+
+  const swipeDislikedIds = new Set<number>(swipeDisliked.map(s => s.movie_id))
+  const swipeLikedIds    = new Set<number>(swipeLiked.map(s => s.movie_id))
+
+  // Build genre scores from swipes that are in the movies cache
+  for (const s of swipeLiked) {
+    const m = (s.movies as unknown) as { title: string; genres: { id: number; name: string }[] } | null
+    if (!m?.genres) continue
+    const weight = s.direction === 'like' ? 1 : 0
+    if (weight === 0) continue
+    for (const g of m.genres) {
+      if (!genreScores[g.name]) genreScores[g.name] = { total: 0, count: 0 }
+      genreScores[g.name].total += 7 * weight // swipe like ≈ nota 7
+      genreScores[g.name].count += weight
+      if (weight > 0) lovedGenreIds.add(g.id)
+    }
+  }
+
+  // Re-sort top genres including swipe signals
+  const topGenres = Object.entries(genreScores)
+    .map(([name, { total, count }]) => ({ name, avg: total / count, count }))
+    .sort((a, b) => b.avg * Math.log(b.count + 1) - a.avg * Math.log(a.count + 1))
+    .slice(0, 6)
 
   const excludedIds = new Set<number>([
     ...(watchedReviews?.map(r => r.movie_id) ?? []),
@@ -184,19 +202,30 @@ export async function getRecommendation(
 
   if (candidates.length === 0) return null
 
-  // Collect swipe-liked candidate titles for AI context
-  const swipeLikedIds = new Set<number>(
-    (swipes ?? []).filter(s => s.direction === 'like').map(s => s.movie_id)
-  )
+  // Swipe liked titles for AI — up to 20 (primary taste signal)
+  const swipeLikedTitles = swipeLiked.slice(0, 20).map(s => {
+    const m = (s.movies as unknown) as { title: string } | null
+    return m?.title ? `"${m.title}"` : null
+  }).filter(Boolean) as string[]
+
+  // Also collect titles of liked candidates that appear in the discover pool
   for (const c of candidates) {
-    if (swipeLikedIds.has(c.id)) swipeLikedTitles.push(`"${c.title}"`)
+    if (swipeLikedIds.has(c.id) && !swipeLikedTitles.includes(`"${c.title}"`)) {
+      swipeLikedTitles.push(`"${c.title}"`)
+    }
   }
 
-  // Boost candidates the user liked in swipe mode, then sort by composite score
+  const swipeDislikedTitles = swipeDisliked.slice(0, 10).map(s => {
+    const m = (s.movies as unknown) as { title: string } | null
+    return m?.title ? `"${m.title}"` : null
+  }).filter(Boolean) as string[]
+
+  // Higher boost for swipe likes; scale by engagement (more swipes = more confidence)
+  const swipeBoostMultiplier = Math.min(swipeLiked.length / 10, 3)
   const scored = candidates
     .sort((a, b) => {
-      const boostA = swipeLikedIds.has(a.id) ? 2 : 0
-      const boostB = swipeLikedIds.has(b.id) ? 2 : 0
+      const boostA = swipeLikedIds.has(a.id) ? 2 * swipeBoostMultiplier : 0
+      const boostB = swipeLikedIds.has(b.id) ? 2 * swipeBoostMultiplier : 0
       return (b.score * 0.6 + b.popularity * 0.001 + boostB) - (a.score * 0.6 + a.popularity * 0.001 + boostA)
     })
     .slice(0, 30)
@@ -209,19 +238,28 @@ export async function getRecommendation(
 
   const hasHistory = loved.length > 0 || disliked.length > 0
 
-  const swipedLikeContext = swipeLikedTitles.length > 0
-    ? `Curtiram no swipe (quer assistir): ${swipeLikedTitles.slice(0, 5).join(', ')}`
+  const swipeContext = swipeLikedTitles.length > 0
+    ? `SWIPES — curtiu (quer assistir, ${swipeLiked.length} no total): ${swipeLikedTitles.join(', ')}`
+    : ''
+  const swipeDislikedContext = swipeDislikedTitles.length > 0
+    ? `SWIPES — passou (não quer, ${swipeDisliked.length} no total): ${swipeDislikedTitles.join(', ')}`
     : ''
 
-  const tasteProfile = hasHistory || swipedLikeContext
+  const hasSwipeData = swipeLiked.length >= 3
+  const swipeNote = hasSwipeData
+    ? `\n⚡ O usuário avaliou ${(swipes ?? []).length} itens no swipe — use isso como sinal PRINCIPAL de gosto.`
+    : ''
+
+  const tasteProfile = hasHistory || hasSwipeData
     ? [
-        loved.length > 0 ? `Filmes/séries que você AMOU: ${loved.slice(0, 6).join(' | ')}` : '',
-        disliked.length > 0 ? `Não gostou de: ${disliked.slice(0, 3).join(' | ')}` : '',
+        swipeContext,
+        swipeDislikedContext,
+        loved.length > 0 ? `Avaliados com nota alta: ${loved.slice(0, 6).join(' | ')}` : '',
+        disliked.length > 0 ? `Avaliados com nota baixa: ${disliked.slice(0, 3).join(' | ')}` : '',
         topGenres.length > 0
-          ? `Gêneros favoritos por nota: ${topGenres.map(g => `${g.name} (★${g.avg.toFixed(1)}, ${g.count}x)`).join(', ')}`
+          ? `Gêneros inferidos (reviews + swipes): ${topGenres.map(g => `${g.name} (${g.count}x)`).join(', ')}`
           : '',
-        swipedLikeContext,
-      ].filter(Boolean).join('\n')
+      ].filter(Boolean).join('\n') + swipeNote
     : 'Usuário sem histórico ainda — escolha algo popular, bem avaliado e acessível.'
 
   const moodLine = filters?.mood ? `\nESTADO DE ESPÍRITO HOJE: "${filters.mood}"` : ''
@@ -258,7 +296,7 @@ A razão deve ser pessoal e específica: mencione gostos concretos do usuário o
 CANDIDATOS DISPONÍVEIS (streaming BR):
 ${candidateList}
 
-Qual obra esse usuário vai mais amar hoje? Justifique em 2 frases conectando com o perfil dele.`,
+Analise os títulos curtidos no swipe para inferir gêneros, temas e estilos preferidos. Qual obra esse usuário vai mais amar? Justifique em 2 frases conectando com o perfil dele.`,
         },
       ],
     })
