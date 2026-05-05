@@ -39,14 +39,20 @@ export default function SwipePage() {
   const loadCards = useCallback(async () => {
     setLoading(true)
     try {
-      // Get already-swiped IDs for this user
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: swipedRows } = await supabase
-        .from('swipes')
-        .select('movie_id, media_type')
-        .eq('user_id', user?.id ?? '')
-
-      const swipedKeys = new Set((swipedRows ?? []).map(s => `${s.media_type}-${s.movie_id}`))
+      // Try to get already-swiped IDs — fail gracefully if Supabase is unreachable
+      let swipedKeys = new Set<string>()
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: swipedRows } = await supabase
+            .from('swipes')
+            .select('movie_id, media_type')
+            .eq('user_id', user.id)
+          swipedKeys = new Set((swipedRows ?? []).map(s => `${s.media_type}-${s.movie_id}`))
+        }
+      } catch {
+        // Supabase temporarily unreachable — show all cards unfiltered
+      }
 
       // Fetch combined swipe feed from a single API route
       const feedRes = await fetch('/api/swipe-feed')
