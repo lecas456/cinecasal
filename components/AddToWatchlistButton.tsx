@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Check, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { MovieLike } from '@/components/MovieCard'
@@ -13,7 +13,12 @@ interface Props {
 
 export default function AddToWatchlistButton({ movie, className = '', variant = 'icon' }: Props) {
   const [state, setState] = useState<'idle' | 'loading' | 'added'>('idle')
+  const [userId, setUserId] = useState<string | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+  }, [supabase])
 
   async function handleAdd() {
     if (state !== 'idle') return
@@ -28,7 +33,7 @@ export default function AddToWatchlistButton({ movie, className = '', variant = 
       release_date: movie.release_date || null,
     })
 
-    // Check if already in watchlist
+    // Check if already in watchlist (RLS filters by user automatically)
     const { data: existing } = await supabase
       .from('watchlist')
       .select('id')
@@ -40,6 +45,7 @@ export default function AddToWatchlistButton({ movie, className = '', variant = 
       await supabase.from('watchlist').insert({
         movie_id: movie.id,
         status: 'pending',
+        added_by: userId,
       })
     }
 

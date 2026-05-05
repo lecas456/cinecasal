@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react'
@@ -24,6 +24,11 @@ export default function RecommendationCard() {
   const [started, setStarted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
+  }, [supabase])
 
   const fetchRecommendation = useCallback(async () => {
     setLoading(true)
@@ -50,6 +55,7 @@ export default function RecommendationCard() {
     await supabase.from('watchlist').insert({
       movie_id: data.movie.id,
       status: 'accepted',
+      added_by: userId,
     })
     setData(null)
     setStarted(false)
@@ -60,6 +66,7 @@ export default function RecommendationCard() {
     await supabase.from('watchlist').insert({
       movie_id: data.movie.id,
       status: 'rejected',
+      added_by: userId,
     })
     fetchRecommendation()
   }
