@@ -45,6 +45,12 @@ export default function SwipePage() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
+          // Garante que o perfil existe (trigger OAuth pode falhar silenciosamente)
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Usuário',
+          }, { onConflict: 'id' })
+
           const { data: swipedRows } = await supabase
             .from('swipes')
             .select('movie_id, media_type')
