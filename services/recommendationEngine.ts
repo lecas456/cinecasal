@@ -5,7 +5,7 @@ import type { MovieLike, WatchProviderResult, DiscoverParams } from '@/types/tmd
 
 export interface RecommendationFilters {
   mood?: string
-  platformId?: number
+  platformIds?: number[]
   minYear?: number
   mediaType?: 'movie' | 'tv' | 'both'
 }
@@ -85,21 +85,32 @@ export async function getRecommendation(
     .sort((a, b) => b.avg * Math.log(b.count + 1) - a.avg * Math.log(a.count + 1))
     .slice(0, 6)
 
-  // ── Phase 2: Excluded IDs ──────────────────────────────────────────
+  // ── Phase 2: Excluded IDs + swipe signals ─────────────────────────
 
-  const [{ data: watchedReviews }, { data: rejectedWatchlist }] = await Promise.all([
+  const [{ data: watchedReviews }, { data: rejectedWatchlist }, { data: swipes }] = await Promise.all([
     supabase.from('reviews').select('movie_id'),
     supabase.from('watchlist').select('movie_id').in('status', ['rejected', 'watched']),
+    supabase.from('swipes').select('movie_id, direction, media_type'),
   ])
+
+  const swipeDislikedIds = new Set<number>(
+    (swipes ?? []).filter(s => s.direction === 'dislike').map(s => s.movie_id)
+  )
+  const swipeLikedTitles: string[] = []
 
   const excludedIds = new Set<number>([
     ...(watchedReviews?.map(r => r.movie_id) ?? []),
     ...(rejectedWatchlist?.map(w => w.movie_id) ?? []),
+    ...swipeDislikedIds,
   ])
 
   // ── Phase 3: Discover candidates — movies + TV ────────────────────
 
   const randomPage = Math.floor(Math.random() * 10) + 1
+
+  const platformFilter = filters?.platformIds?.length
+    ? { with_watch_providers: filters.platformIds.join('|') }
+    : {}
 
   const baseParams: DiscoverParams = {
     watch_region: 'BR',
@@ -107,7 +118,7 @@ export async function getRecommendation(
     language: 'pt-BR',
     sort_by: 'popularity.desc',
     page: randomPage,
-    ...(filters?.platformId ? { with_watch_providers: String(filters.platformId) } : {}),
+    ...platformFilter,
     ...(filters?.minYear ? { 'primary_release_date.gte': `${filters.minYear}-01-01` } : {}),
   }
 
@@ -117,7 +128,7 @@ export async function getRecommendation(
     language: 'pt-BR',
     sort_by: 'popularity.desc',
     page: randomPage,
-    ...(filters?.platformId ? { with_watch_providers: String(filters.platformId) } : {}),
+    ...platformFilter,
     ...(filters?.minYear ? { 'first_air_date.gte': `${filters.minYear}-01-01` } : {}),
   }
 
@@ -169,9 +180,21 @@ export async function getRecommendation(
 
   if (candidates.length === 0) return null
 
-  // Bias toward high-scored items, then shuffle within groups
+  // Collect swipe-liked candidate titles for AI context
+  const swipeLikedIds = new Set<number>(
+    (swipes ?? []).filter(s => s.direction === 'like').map(s => s.movie_id)
+  )
+  for (const c of candidates) {
+    if (swipeLikedIds.has(c.id)) swipeLikedTitles.push(`"${c.title}"`)
+  }
+
+  // Boost candidates the user liked in swipe mode, then sort by composite score
   const scored = candidates
-    .sort((a, b) => (b.score * 0.6 + b.popularity * 0.001) - (a.score * 0.6 + a.popularity * 0.001))
+    .sort((a, b) => {
+      const boostA = swipeLikedIds.has(a.id) ? 2 : 0
+      const boostB = swipeLikedIds.has(b.id) ? 2 : 0
+      return (b.score * 0.6 + b.popularity * 0.001 + boostB) - (a.score * 0.6 + a.popularity * 0.001 + boostA)
+    })
     .slice(0, 30)
 
   // ── Phase 4: AI analysis — deep reasoning ──────────────────────────
@@ -182,11 +205,18 @@ export async function getRecommendation(
 
   const hasHistory = loved.length > 0 || disliked.length > 0
 
-  const tasteProfile = hasHistory
+  const swipedLikeContext = swipeLikedTitles.length > 0
+    ? `Curtiram no swipe (quer assistir): ${swipeLikedTitles.slice(0, 5).join(', ')}`
+    : ''
+
+  const tasteProfile = hasHistory || swipedLikeContext
     ? [
-        `Filmes/séries que o casal AMOU: ${loved.slice(0, 6).join(' | ') || 'nenhum ainda'}`,
+        loved.length > 0 ? `Filmes/séries que o casal AMOU: ${loved.slice(0, 6).join(' | ')}` : '',
         disliked.length > 0 ? `Não gostaram de: ${disliked.slice(0, 3).join(' | ')}` : '',
-        `Gêneros favoritos por nota: ${topGenres.map(g => `${g.name} (★${g.avg.toFixed(1)}, ${g.count}x)`).join(', ') || 'indefinido'}`,
+        topGenres.length > 0
+          ? `Gêneros favoritos por nota: ${topGenres.map(g => `${g.name} (★${g.avg.toFixed(1)}, ${g.count}x)`).join(', ')}`
+          : '',
+        swipedLikeContext,
       ].filter(Boolean).join('\n')
     : 'Casal sem histórico ainda — escolha algo popular, bem avaliado e acessível.'
 

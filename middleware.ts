@@ -29,7 +29,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  if (!user && !pathname.startsWith('/login')) {
+  // Public routes that don't need auth
+  const isPublic = pathname.startsWith('/login') || pathname.startsWith('/auth/')
+
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
@@ -39,6 +42,21 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
+  }
+
+  // Onboarding: logged in user with no swipes → redirect to /swipe
+  if (user && !isPublic && pathname !== '/swipe') {
+    const { data: swipes } = await supabase
+      .from('swipes')
+      .select('id')
+      .limit(1)
+
+    if (!swipes || swipes.length === 0) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/swipe'
+      url.searchParams.set('onboarding', 'true')
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

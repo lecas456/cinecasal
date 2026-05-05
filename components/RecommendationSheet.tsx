@@ -32,7 +32,7 @@ export default function RecommendationSheet() {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<'filters' | 'result'>('filters')
   const [mood, setMood] = useState('')
-  const [platformId, setPlatformId] = useState<number | undefined>()
+  const [platformIds, setPlatformIds] = useState<number[]>([])
   const [minYear, setMinYear] = useState<number | undefined>()
   const [mediaType, setMediaType] = useState<'movie' | 'tv' | 'both'>('both')
   const [loading, setLoading] = useState(false)
@@ -53,7 +53,7 @@ export default function RecommendationSheet() {
     try {
       const params = new URLSearchParams()
       if (mood.trim()) params.set('mood', mood.trim())
-      if (platformId) params.set('platformId', String(platformId))
+      if (platformIds.length > 0) params.set('platformIds', platformIds.join(','))
       if (minYear) params.set('minYear', String(minYear))
       if (mediaType !== 'both') params.set('mediaType', mediaType)
 
@@ -153,14 +153,14 @@ export default function RecommendationSheet() {
                 </div>
               </div>
 
-              {/* Platform filter */}
+              {/* Platform filter — multi-select */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-300">Filtrar por streaming</label>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setPlatformId(undefined)}
+                    onClick={() => setPlatformIds([])}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors border ${
-                      platformId === undefined
+                      platformIds.length === 0
                         ? 'bg-red-600 border-red-600 text-white'
                         : 'border-zinc-600 text-zinc-400 hover:border-zinc-400'
                     }`}
@@ -170,9 +170,13 @@ export default function RecommendationSheet() {
                   {STREAMING_PLATFORMS_BR.map(p => (
                     <button
                       key={p.id}
-                      onClick={() => setPlatformId(platformId === p.id ? undefined : p.id)}
+                      onClick={() =>
+                        setPlatformIds(prev =>
+                          prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                        )
+                      }
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors border ${
-                        platformId === p.id
+                        platformIds.includes(p.id)
                           ? 'bg-red-600 border-red-600 text-white'
                           : 'border-zinc-600 text-zinc-400 hover:border-zinc-400'
                       }`}

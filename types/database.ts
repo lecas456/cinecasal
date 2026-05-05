@@ -41,3 +41,12 @@ export interface WatchlistItem {
 export interface WatchlistWithMovie extends WatchlistItem {
   movie?: MovieRow
 }
+
+export interface Swipe {
+  id: string
+  user_id: string
+  movie_id: number
+  media_type: 'movie' | 'tv'
+  direction: 'like' | 'dislike' | 'unseen'
+  created_at: string
+}
