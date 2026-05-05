@@ -7,7 +7,6 @@ import { Copy, Loader2, Heart, X, Users2, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { IMAGE_BASE } from '@/lib/tmdb'
 import type { MovieLike, WatchProviderResult } from '@/types/tmdb'
-import WatchProviders from '@/components/WatchProviders'
 
 type MovieWithProviders = MovieLike & { providers?: WatchProviderResult | null }
 
@@ -165,49 +164,37 @@ export default function MatchSessionPage() {
     )
   }
 
-  // ── Match! ─────────────────────────────────────────────────────────
+  // ── Match! — redireciona para a página do filme ────────────────────
   if (session.status === 'matched' && movie) {
+    const moviePath = movie.mediaType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 pb-28 text-center space-y-5">
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 pb-28 text-center space-y-6">
         <div className="text-7xl animate-bounce">🎉</div>
         <div>
           <h2 className="text-3xl font-black text-white">Deu Match!</h2>
           <p className="text-zinc-400 mt-1">Vocês dois querem assistir</p>
         </div>
-        <div className="relative w-36 h-56 rounded-2xl overflow-hidden shadow-2xl shadow-red-900/30">
-          {movie.poster_path && (
+        {movie.poster_path && (
+          <div className="relative w-36 h-56 rounded-2xl overflow-hidden shadow-2xl shadow-red-900/30">
             <Image src={`${IMAGE_BASE}${movie.poster_path}`} alt={movie.title} fill className="object-cover" />
-          )}
-        </div>
-        <div>
-          <h3 className="text-xl font-black text-white">{movie.title}</h3>
-          <p className="text-zinc-400 text-sm">{movie.release_date?.slice(0, 4)}</p>
-        </div>
-        {movie.providers && <WatchProviders providers={movie.providers} />}
-        <div className="flex gap-3 w-full max-w-xs">
-          <button
-            onClick={() => router.push(movie.mediaType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`)}
-            className="flex-1 rounded-2xl bg-red-600 hover:bg-red-700 py-4 text-white font-bold transition-colors"
-          >
-            Ver detalhes
-          </button>
-          {isLeader ? (
-            <button
-              onClick={() => fetchNextMovie(session.id)}
-              disabled={fetchingNext}
-              className="flex-1 rounded-2xl bg-zinc-800 hover:bg-zinc-700 py-4 text-white font-bold transition-colors disabled:opacity-50"
-            >
-              {fetchingNext ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Próximo'}
-            </button>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
-              Aguardando líder...
-            </div>
-          )}
-        </div>
-        <button onClick={handleLeave} className="text-sm text-zinc-600 hover:text-zinc-400">
-          Sair da sala
+          </div>
+        )}
+        <h3 className="text-xl font-black text-white">{movie.title}</h3>
+        <button
+          onClick={() => router.push(moviePath)}
+          className="w-full max-w-xs rounded-2xl bg-red-600 hover:bg-red-700 py-5 text-white font-bold text-lg transition-colors"
+        >
+          Ver {movie.mediaType === 'tv' ? 'a série' : 'o filme'} →
         </button>
+        {isLeader && (
+          <button
+            onClick={() => fetchNextMovie(session.id)}
+            disabled={fetchingNext}
+            className="text-sm text-zinc-600 hover:text-zinc-400 transition-colors"
+          >
+            {fetchingNext ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Votar em outro'}
+          </button>
+        )}
       </div>
     )
   }
