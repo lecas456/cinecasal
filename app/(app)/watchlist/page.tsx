@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getMovieDetails, getTvDetails, IMAGE_BASE } from '@/lib/tmdb'
 import { Bookmark } from 'lucide-react'
+import WatchlistRemoveButton from '@/components/WatchlistRemoveButton'
 
 type NormalizedItem = {
   id: number
@@ -77,50 +78,53 @@ export default async function WatchlistPage() {
           const href = mediaType === 'tv' ? `/tv/${item.movie_id}` : `/movie/${item.movie_id}`
 
           return (
-            <Link
+            <div
               key={item.id}
-              href={href}
-              className="flex gap-3 rounded-xl bg-zinc-900 border border-zinc-800 p-3 hover:bg-zinc-800 transition-colors"
+              className="flex gap-3 items-center rounded-xl bg-zinc-900 border border-zinc-800 p-3"
             >
-              <div
-                className="relative shrink-0 overflow-hidden rounded-lg bg-zinc-800"
-                style={{ width: 60, aspectRatio: '2/3' }}
-              >
-                {movie.poster_path && (
-                  <Image
-                    src={`${IMAGE_BASE}${movie.poster_path}`}
-                    alt={movie.title}
-                    fill
-                    sizes="60px"
-                    className="object-cover"
-                  />
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 space-y-1 py-0.5">
-                <p className="font-semibold text-white text-sm line-clamp-2">{movie.title}</p>
-                <p className="text-xs text-zinc-500">
-                  {[year, movie.vote_average > 0 ? `★ ${movie.vote_average.toFixed(1)}` : null]
-                    .filter(Boolean).join(' · ')}
-                </p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {movie.genres.slice(0, 2).map(g => (
-                    <span key={g.id} className="rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-500">
-                      {g.name}
-                    </span>
-                  ))}
-                </div>
-                <span
-                  className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                    item.status === 'accepted'
-                      ? 'bg-red-600/20 text-red-400 border border-red-600/30'
-                      : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                  }`}
+              <Link href={href} className="flex gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                <div
+                  className="relative shrink-0 overflow-hidden rounded-lg bg-zinc-800"
+                  style={{ width: 60, aspectRatio: '2/3' }}
                 >
-                  {item.status === 'accepted' ? 'Para assistir' : 'Pendente'}
-                </span>
-              </div>
-            </Link>
+                  {movie.poster_path && (
+                    <Image
+                      src={`${IMAGE_BASE}${movie.poster_path}`}
+                      alt={movie.title}
+                      fill
+                      sizes="60px"
+                      className="object-cover"
+                    />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-1 py-0.5">
+                  <p className="font-semibold text-white text-sm line-clamp-2">{movie.title}</p>
+                  <p className="text-xs text-zinc-500">
+                    {[year, movie.vote_average > 0 ? `★ ${movie.vote_average.toFixed(1)}` : null]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {movie.genres.slice(0, 2).map(g => (
+                      <span key={g.id} className="rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-500">
+                        {g.name}
+                      </span>
+                    ))}
+                  </div>
+                  <span
+                    className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      item.status === 'accepted'
+                        ? 'bg-red-600/20 text-red-400 border border-red-600/30'
+                        : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                    }`}
+                  >
+                    {item.status === 'accepted' ? 'Para assistir' : 'Pendente'}
+                  </span>
+                </div>
+              </Link>
+
+              <WatchlistRemoveButton itemId={item.id} />
+            </div>
           )
         })}
       </div>
