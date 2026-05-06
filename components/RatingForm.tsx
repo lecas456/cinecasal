@@ -5,10 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Review } from '@/types/database'
-import type { MovieDetails } from '@/types/tmdb'
+
+interface RatableItem {
+  id: number
+  title: string
+  overview?: string | null
+  poster_path: string | null
+  genres: { id: number; name: string }[]
+  release_date?: string | null
+}
 
 interface RatingFormProps {
-  movie: MovieDetails
+  movie: RatableItem
   reviews: Review[]
   currentUserId: string
   profiles: { id: string; name: string }[]

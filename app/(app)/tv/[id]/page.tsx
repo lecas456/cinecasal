@@ -3,7 +3,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Tv } from 'lucide-react'
 import { getTvDetails, getTvWatchProviders, IMAGE_BASE_ORIGINAL } from '@/lib/tmdb'
+import { createClient } from '@/lib/supabase/server'
 import WatchProviders from '@/components/WatchProviders'
+import RatingForm from '@/components/RatingForm'
+import AddToWatchlistButton from '@/components/AddToWatchlistButton'
+import type { Review } from '@/types/database'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -14,15 +18,44 @@ export default async function TvPage({ params }: PageProps) {
   const tvId = parseInt(id, 10)
   if (isNaN(tvId)) notFound()
 
-  const [show, providersData] = await Promise.all([
+  const [show, providersData, supabase] = await Promise.all([
     getTvDetails(tvId),
     getTvWatchProviders(tvId),
+    createClient(),
   ])
 
   if (!show) notFound()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) notFound()
+
+  const [{ data: reviews }, { data: profiles }] = await Promise.all([
+    supabase.from('reviews').select('*').eq('movie_id', show.id),
+    supabase.from('profiles').select('id, name'),
+  ])
+
   const providers = providersData?.results?.BR ?? null
   const year = show.first_air_date ? new Date(show.first_air_date).getFullYear() : null
+
+  const showAsRatable = {
+    id: show.id,
+    title: show.name,
+    overview: show.overview,
+    poster_path: show.poster_path,
+    genres: show.genres,
+    release_date: show.first_air_date,
+  }
+
+  const showAsMovieLike = {
+    id: show.id,
+    title: show.name,
+    poster_path: show.poster_path,
+    backdrop_path: show.backdrop_path,
+    overview: show.overview,
+    release_date: show.first_air_date,
+    vote_average: show.vote_average,
+    mediaType: 'tv' as const,
+  }
 
   return (
     <div className="bg-zinc-950 min-h-screen">
@@ -94,6 +127,7 @@ export default async function TvPage({ params }: PageProps) {
                 </span>
               ))}
             </div>
+            <AddToWatchlistButton movie={showAsMovieLike} variant="full" />
           </div>
         </div>
 
@@ -122,6 +156,17 @@ export default async function TvPage({ params }: PageProps) {
             <WatchProviders providers={providers} />
           </div>
         )}
+
+        {/* Divider */}
+        <div className="border-t border-zinc-800" />
+
+        {/* Rating */}
+        <RatingForm
+          movie={showAsRatable}
+          reviews={(reviews as Review[]) ?? []}
+          currentUserId={user.id}
+          profiles={profiles ?? []}
+        />
       </div>
     </div>
   )
