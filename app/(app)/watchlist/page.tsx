@@ -1,8 +1,42 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { getMovieDetails, IMAGE_BASE } from '@/lib/tmdb'
+import { getMovieDetails, getTvDetails, IMAGE_BASE } from '@/lib/tmdb'
 import { Bookmark } from 'lucide-react'
+
+type NormalizedItem = {
+  id: number
+  title: string
+  poster_path: string | null
+  release_date: string | null
+  vote_average: number
+  genres: { id: number; name: string }[]
+}
+
+async function fetchItemDetails(movieId: number, mediaType: string | null): Promise<NormalizedItem | null> {
+  if (mediaType === 'tv') {
+    const tv = await getTvDetails(movieId)
+    if (!tv) return null
+    return {
+      id: tv.id,
+      title: tv.name,
+      poster_path: tv.poster_path,
+      release_date: tv.first_air_date,
+      vote_average: tv.vote_average,
+      genres: tv.genres,
+    }
+  }
+  const movie = await getMovieDetails(movieId)
+  if (!movie) return null
+  return {
+    id: movie.id,
+    title: movie.title,
+    poster_path: movie.poster_path,
+    release_date: movie.release_date ?? null,
+    vote_average: movie.vote_average,
+    genres: movie.genres,
+  }
+}
 
 export default async function WatchlistPage() {
   const supabase = await createClient()
@@ -25,7 +59,9 @@ export default async function WatchlistPage() {
     )
   }
 
-  const moviesData = await Promise.all(items.map(item => getMovieDetails(item.movie_id)))
+  const moviesData = await Promise.all(
+    items.map(item => fetchItemDetails(item.movie_id, item.media_type ?? 'movie'))
+  )
 
   return (
     <div className="bg-zinc-950 min-h-screen p-4 pb-24 space-y-4">
@@ -37,11 +73,13 @@ export default async function WatchlistPage() {
           const movie = moviesData[i]
           if (!movie) return null
           const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null
+          const mediaType = item.media_type ?? 'movie'
+          const href = mediaType === 'tv' ? `/tv/${item.movie_id}` : `/movie/${item.movie_id}`
 
           return (
             <Link
               key={item.id}
-              href={`/movie/${item.movie_id}`}
+              href={href}
               className="flex gap-3 rounded-xl bg-zinc-900 border border-zinc-800 p-3 hover:bg-zinc-800 transition-colors"
             >
               <div

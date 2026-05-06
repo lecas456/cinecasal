@@ -111,7 +111,9 @@ export default function MatchSessionPage() {
     votesProcessedRef.current = true
 
     if (session.leader_vote === 'yes' && session.partner_vote === 'yes') {
-      supabase.from('match_sessions').update({ status: 'matched' }).eq('id', session.id)
+      ;(async () => {
+        await supabase.from('match_sessions').update({ status: 'matched' }).eq('id', session.id)
+      })()
     } else {
       fetchNextMovie(session.id)
     }

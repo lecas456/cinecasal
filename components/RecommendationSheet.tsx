@@ -81,6 +81,7 @@ export default function RecommendationSheet() {
     if (!result) return
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
+      media_type: result.mediaType,
       status: 'accepted',
       added_by: userId,
     })
@@ -91,6 +92,7 @@ export default function RecommendationSheet() {
     if (!result) return
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
+      media_type: result.mediaType,
       status: 'rejected',
       added_by: userId,
     })
@@ -101,6 +103,7 @@ export default function RecommendationSheet() {
     if (!result) return
     await supabase.from('watchlist').insert({
       movie_id: result.movie.id,
+      media_type: result.mediaType,
       status: 'watched',
       added_by: userId,
     })

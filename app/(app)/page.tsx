@@ -6,6 +6,7 @@ import {
   getTopStreamingMovies,
   getTopStreamingTv,
   getMovieDetails,
+  getTvDetails,
   getTopComedies,
   getTopAction,
   getTopAnime,
@@ -16,7 +17,7 @@ import {
 import MovieCarousel from '@/components/MovieCarousel'
 import AddToWatchlistButton from '@/components/AddToWatchlistButton'
 import RecommendationSheet from '@/components/RecommendationSheet'
-import type { MovieDetails } from '@/types/tmdb'
+import type { MovieLike } from '@/types/tmdb'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -42,17 +43,36 @@ export default async function HomePage() {
     getTopSciFi(),
     supabase
       .from('watchlist')
-      .select('movie_id')
+      .select('movie_id, media_type')
       .in('status', ['accepted', 'pending'])
       .limit(10),
   ])
 
   const hero = trending[0]
 
-  const watchlistMovies: MovieDetails[] = watchlistItems?.length
-    ? (
-        await Promise.all(watchlistItems.map(w => getMovieDetails(w.movie_id)))
-      ).filter((m): m is MovieDetails => m !== null)
+  async function fetchWatchlistItem(movieId: number, mediaType: string | null): Promise<MovieLike | null> {
+    if (mediaType === 'tv') {
+      const tv = await getTvDetails(movieId)
+      if (!tv) return null
+      return {
+        id: tv.id,
+        title: tv.name,
+        poster_path: tv.poster_path,
+        backdrop_path: tv.backdrop_path,
+        overview: tv.overview,
+        release_date: tv.first_air_date,
+        vote_average: tv.vote_average,
+        mediaType: 'tv',
+      }
+    }
+    const movie = await getMovieDetails(movieId)
+    if (!movie) return null
+    return { ...movie, mediaType: 'movie' }
+  }
+
+  const watchlistMovies: MovieLike[] = watchlistItems?.length
+    ? (await Promise.all(watchlistItems.map(w => fetchWatchlistItem(w.movie_id, w.media_type ?? 'movie'))))
+        .filter((m): m is MovieLike => m !== null)
     : []
 
   return (

@@ -69,18 +69,24 @@ export async function getRecommendation(
   const genreScores: Record<string, { total: number; count: number }> = {}
   const lovedGenreIds: Set<number> = new Set()
 
-  for (const data of Object.values(movieMap)) {
-    const avg = data.ratings.reduce((s, r) => s + r.rating, 0) / data.ratings.length
-    if (avg >= 7) {
-      loved.push(`"${data.title}" ★${avg.toFixed(1)}`)
-      for (const g of data.genres) lovedGenreIds.add(g.id)
-    } else if (avg < 5) {
-      disliked.push(`"${data.title}" ★${avg.toFixed(1)}`)
-    }
-    for (const g of data.genres) {
-      if (!genreScores[g.name]) genreScores[g.name] = { total: 0, count: 0 }
-      genreScores[g.name].total += avg
-      genreScores[g.name].count += 1
+  // Reviews só entram no perfil de gosto a partir de 20 avaliações
+  const reviewCount = Object.keys(movieMap).length
+  const useReviewData = reviewCount > 20
+
+  if (useReviewData) {
+    for (const data of Object.values(movieMap)) {
+      const avg = data.ratings.reduce((s, r) => s + r.rating, 0) / data.ratings.length
+      if (avg >= 7) {
+        loved.push(`"${data.title}" ★${avg.toFixed(1)}`)
+        for (const g of data.genres) lovedGenreIds.add(g.id)
+      } else if (avg < 5) {
+        disliked.push(`"${data.title}" ★${avg.toFixed(1)}`)
+      }
+      for (const g of data.genres) {
+        if (!genreScores[g.name]) genreScores[g.name] = { total: 0, count: 0 }
+        genreScores[g.name].total += avg
+        genreScores[g.name].count += 1
+      }
     }
   }
 
@@ -250,14 +256,14 @@ export async function getRecommendation(
     ? `\n⚡ O usuário avaliou ${(swipes ?? []).length} itens no swipe — use isso como sinal PRINCIPAL de gosto.`
     : ''
 
-  const tasteProfile = hasHistory || hasSwipeData
+  const tasteProfile = hasSwipeData || hasHistory
     ? [
         swipeContext,
         swipeDislikedContext,
-        loved.length > 0 ? `Avaliados com nota alta: ${loved.slice(0, 6).join(' | ')}` : '',
-        disliked.length > 0 ? `Avaliados com nota baixa: ${disliked.slice(0, 3).join(' | ')}` : '',
+        useReviewData && loved.length > 0 ? `Avaliados com nota alta: ${loved.slice(0, 6).join(' | ')}` : '',
+        useReviewData && disliked.length > 0 ? `Avaliados com nota baixa: ${disliked.slice(0, 3).join(' | ')}` : '',
         topGenres.length > 0
-          ? `Gêneros inferidos (reviews + swipes): ${topGenres.map(g => `${g.name} (${g.count}x)`).join(', ')}`
+          ? `Gêneros inferidos (swipes${useReviewData ? ' + reviews' : ''}): ${topGenres.map(g => `${g.name} (${g.count}x)`).join(', ')}`
           : '',
       ].filter(Boolean).join('\n') + swipeNote
     : 'Usuário sem histórico ainda — escolha algo popular, bem avaliado e acessível.'
