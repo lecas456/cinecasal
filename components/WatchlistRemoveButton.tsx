@@ -14,8 +14,12 @@ export default function WatchlistRemoveButton({ itemId }: { itemId: string }) {
     e.preventDefault()
     e.stopPropagation()
     setLoading(true)
-    await supabase.from('watchlist').delete().eq('id', itemId)
-    router.refresh()
+    try {
+      await supabase.from('watchlist').delete().eq('id', itemId)
+      router.refresh()
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
